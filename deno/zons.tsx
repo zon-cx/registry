@@ -1,9 +1,9 @@
-/** @jsxImportSource npm:hono@latest/jsx */
-// @deno-types="npm:@types/react"
+/** @jsxImportSource https://esm.sh/hono@latest/jsx */
+import { jsxRenderer } from "https://esm.sh/hono/jsx-renderer";
+import { openKv } from "https://esm.town/v/pomdtr/kv";
 import { Hono } from "npm:hono";
-import { jsxRenderer } from "npm:hono/jsx-renderer";
-import ValTown from "npm:@valtown/sdk";
 import { PropsWithChildren } from "npm:hono/jsx";
+import config from "./config.json" with { type: "json" };
 
 const app = new Hono();
 
@@ -17,7 +17,7 @@ app.use(
           <meta name="viewport" content="width=device-width, initial-scale=1" />
           <title>Zon Gallery</title>
           <meta name="description" content="Welcome to Zon" />
-          <script  src="https://unpkg.com/@tailwindcss/browser@4"></script>
+          <script hx-preserve="true" src="https://unpkg.com/@tailwindcss/browser@4"></script>
           <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
         </head>
         <body className="bg-gray-50 min-h-screen">
@@ -29,15 +29,11 @@ app.use(
   }),
 );
 
-app.get("/", async (c) => {
-  // Fetch vals from ValTown API
-  const valtown = new ValTown();
-  const vals = await valtown.me.vals.list({ limit: 100, offset: 0 });
-  const zons = (vals.data || []).map((val => ({
-    ...val,
-    likeCount: 0,
-    referenceCount: 0,
-  })));
+app.get("/", async (c: any) => {
+  const kv = openKv();
+  const zons = await kv.get("zons:list") || [];
+
+  console.log(`Found ${zons.length} zons from KV`);
 
   return c.render(
     <main className="container mx-auto px-4 py-8">
@@ -65,7 +61,7 @@ app.get("/", async (c) => {
         {zons.map((zon: any) => (
           <a
             key={zon.name}
-            href={`/${zon.name}`}
+            href={`${config.urls.zon}/${zon.name}`}
             className="block bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-200 overflow-hidden border border-gray-100 group"
           >
             <div className="p-4">
@@ -111,4 +107,4 @@ app.get("/", async (c) => {
   );
 });
 
-export default app;
+export default app.fetch;

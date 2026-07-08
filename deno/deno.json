@@ -9,5 +9,15 @@
     "hono/": "npm:hono@latest/",
     "@valtown/sdk": "npm:@valtown/sdk@latest",
     "npm:hono/jsx-runtime": "npm:hono@latest/jsx/jsx-runtime"
+  },
+  "tasks": {
+    "dev": "deno serve --env-file -A --port 8000 main.tsx",
+    "zons": "deno serve --env-file -A zons.tsx",
+    "zon": "deno serve --env-file -A zon.tsx",
+    "file.http": "deno serve --env-file -A file.http.tsx",
+    "file.cron": "deno serve --env-file -A file.cron.tsx",
+    "file.readme": "deno serve --env-file -A file.readme.tsx",
+    "file": "deno serve --env-file -A file.tsx",
+    "sync": "deno run --env-file -A sync.ts"
   }
-} 
+}
