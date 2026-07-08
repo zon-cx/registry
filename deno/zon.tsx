@@ -6,6 +6,7 @@ import { Hono } from "npm:hono";
 import { PropsWithChildren } from "npm:hono/jsx";
 import { jsxRenderer } from "npm:hono/jsx-renderer";
 import config from "./config.json" with { type: "json" };
+import { urls } from "./urls.ts";
 
 const app = new Hono();
 
@@ -133,7 +134,7 @@ app.get("/:zon", async (c) => {
     <main className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <div className="flex items-center space-x-3 mb-4">
-          <a href={config.urls.zons} className="text-blue-600 hover:text-blue-800">
+          <a href={urls.zons} className="text-blue-600 hover:text-blue-800">
             <i data-lucide="arrow-left" className="h-5 w-5"></i>
           </a>
           <h1 className="text-3xl font-bold text-gray-900">{zon}</h1>
@@ -144,7 +145,7 @@ app.get("/:zon", async (c) => {
           {files.map(withTypeInfo).map(({ typeInfo, ...file }) => (
             <a
               key={file.name}
-              href={`${config.urls.files}/${zon}/${file.name}`}
+              href={`${urls.files}/${zon}/${file.name}`}
               className="block bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-200 overflow-hidden border border-gray-100 group"
             >
               <div className="p-4">

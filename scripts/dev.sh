@@ -25,5 +25,13 @@ fi
 export PATH="$DENO_INSTALL/bin:$PATH"
 export DEV_PORT="${DEV_PORT:-5173}"
 
+# The combined server mounts every sub-app under one origin, so point the
+# cross-service links at local relative paths instead of the production
+# *.val.run URLs (which the preview iframe blocks). These match the mounts in
+# deno/main.tsx: /zon, /file, and / for the gallery.
+export URL_ZONS="${URL_ZONS:-/}"
+export URL_ZON="${URL_ZON:-/zon}"
+export URL_FILES="${URL_FILES:-/file}"
+
 echo "[dev] Starting Deno registry server on port $DEV_PORT ..."
 exec "$DENO_BIN" run -A "$ROOT/deno/main.tsx"

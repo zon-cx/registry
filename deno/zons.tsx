@@ -4,6 +4,7 @@ import { openKv } from "./store.ts";
 import { Hono } from "npm:hono";
 import { PropsWithChildren } from "npm:hono/jsx";
 import config from "./config.json" with { type: "json" };
+import { urls } from "./urls.ts";
 
 const app = new Hono();
 
@@ -61,7 +62,7 @@ app.get("/", async (c: any) => {
         {zons.map((zon: any) => (
           <a
             key={zon.name}
-            href={`${config.urls.zon}/${zon.name}`}
+            href={`${urls.zon}/${zon.name}`}
             className="block bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-200 overflow-hidden border border-gray-100 group"
           >
             <div className="p-4">

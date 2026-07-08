@@ -7,6 +7,7 @@ import { createMiddleware } from "npm:hono/factory";
 import { PropsWithChildren } from "npm:hono/jsx";
 import { jsxRenderer } from "npm:hono/jsx-renderer";
 import config from "./config.json" with { type: "json" };
+import { urls } from "./urls.ts";
 
 const app = new Hono();
 
@@ -105,7 +106,7 @@ app.get("/:zon/:file", async (c: Context) => {
           <div className="text-center">
             <h1 className="text-2xl font-bold text-gray-900 mb-4">Zon Not Found</h1>
             <p className="text-gray-600 mb-4">The zon "{zon}" could not be found.</p>
-            <a href={config.urls.zons} className="text-blue-600 hover:text-blue-800">← Back to Gallery</a>
+            <a href={urls.zons} className="text-blue-600 hover:text-blue-800">← Back to Gallery</a>
           </div>
         </div>,
       );
@@ -122,7 +123,7 @@ app.get("/:zon/:file", async (c: Context) => {
           <div className="text-center">
             <h1 className="text-2xl font-bold text-gray-900 mb-4">Not a Cron File</h1>
             <p className="text-gray-600 mb-4">The file "{file}" is not a Cron file type.</p>
-            <a href={`${config.urls.zon}/${zon}`} className="text-blue-600 hover:text-blue-800">← Back to Zon</a>
+            <a href={`${urls.zon}/${zon}`} className="text-blue-600 hover:text-blue-800">← Back to Zon</a>
           </div>
         </div>,
       );
@@ -136,7 +137,7 @@ app.get("/:zon/:file", async (c: Context) => {
           <div className="container mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <a href={`${config.urls.zon}/${zon}`} className="text-blue-600 hover:text-blue-800">
+                <a href={`${urls.zon}/${zon}`} className="text-blue-600 hover:text-blue-800">
                   <i data-lucide="arrow-left" className="h-5 w-5"></i>
                 </a>
                 <div className="flex items-center space-x-3">
