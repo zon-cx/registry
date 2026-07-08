@@ -33,7 +33,10 @@ app.mount("/file.readme", fileReadme);
 app.mount("/file", file);
 app.mount("/", zons);
 
-// `deno serve` expects a default export with a `fetch` method (the Hono app
-// instance provides this). The individual files export `app.fetch` directly
-// because Val Town deploys each one separately.
+// Run with `deno run -A main.tsx`. We call Deno.serve directly (instead of
+// relying on `deno serve`'s `export default { fetch }` contract) because the
+// individual val files export `app.fetch` in the Val Town style.
+const port = Number(Deno.env.get("PORT") ?? 8000);
+Deno.serve({ port }, app.fetch);
+
 export default app;

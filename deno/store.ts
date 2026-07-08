@@ -15,10 +15,12 @@
  * previous runs / the cron sync persisted.
  */
 import * as Y from "https://esm.sh/yjs@13.6.23?target=esnext";
+// Pin Hocuspocus to the exact same yjs module instance (via `deps`) so we don't
+// end up with two copies of Yjs, which breaks `instanceof` checks.
 import {
   HocuspocusProvider,
   HocuspocusProviderWebsocket,
-} from "https://esm.sh/@hocuspocus/provider@2.15.0?&external=ws&target=esnext&yjs=13.6.23";
+} from "https://esm.sh/@hocuspocus/provider@2.15.0?target=esnext&external=ws&deps=yjs@13.6.23";
 import config from "./config.json" with { type: "json" };
 
 const ROOM = config.editor.yjs.room; // "@vals"
