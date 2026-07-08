@@ -1,4 +1,4 @@
-import { openKv } from "https://esm.town/v/pomdtr/kv";
+import { openKv } from "./store.ts";
 import { sync } from "./sync.ts";
 
 const kv = openKv();

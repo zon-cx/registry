@@ -1,7 +1,7 @@
 /** @jsxImportSource npm:hono@latest/jsx */
 
 import { readFile } from "https://esm.town/v/std/utils@85-main/index.ts";
-import { openKv } from "https://esm.town/v/pomdtr/kv";
+import { openKv } from "./store.ts";
 import { Hono } from "npm:hono";
 import { PropsWithChildren } from "npm:hono/jsx";
 import { jsxRenderer } from "npm:hono/jsx-renderer";

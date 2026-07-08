@@ -1,11 +1,12 @@
-import * as Y from "https://esm.sh/yjs@13.6.23?target=esnext";
-import { connectYjs } from "https://esm.town/v/dinavinter/connect";
-import { openKv } from "https://esm.town/v/pomdtr/kv";
+import { getDoc, openKv } from "./store.ts";
 import ValTown from "npm:@valtown/sdk";
 
+// Single source of truth: everything is written into the shared `@vals` Yjs
+// document via the KV interface. Content is stored in `doc.getText(key)` (the
+// exact Y.Text the collaborative <ts-editor> binds to), and all metadata lives
+// in the `kv` map. We also mirror the file list into a top-level `files` map so
+// the editor's file tree keeps working.
 const kv = openKv();
-const valsDoc = connectYjs(`@vals`);
-const fileMap = valsDoc.getMap<{ path: string; type: "file" | "http" | "directory" }>("files");
 const client = new ValTown();
 
 export default async function(interval: Interval) {
@@ -15,18 +16,18 @@ export default async function(interval: Interval) {
     console.error(err);
     return;
   }
-  console.log("Finished syncing all Val Town vals and files to both Yjs and KV storage");
+  console.log("Finished syncing all Val Town vals and files to Yjs storage");
 }
 
 export async function sync() {
-  console.log(`Running Val Town to Yjs and KV sync: ${new Date().toISOString()}`);
+  console.log(`Running Val Town to Yjs sync: ${new Date().toISOString()}`);
 
   const vals = await client.me.vals.list({
     limit: 100,
     offset: 0,
   }).then(res => res.data);
 
-  // Store list of zons in KV for the zons page
+  // Store list of zons for the zons page
   const zonsList = vals.map(val => ({
     name: val.name,
     id: val.id,
@@ -37,13 +38,16 @@ export async function sync() {
     likeCount: 0,
     referenceCount: 0,
   }));
-  
+
   await kv.set("zons:list", zonsList);
-  console.log(`Stored ${zonsList.length} zons in KV list`);
+  console.log(`Stored ${zonsList.length} zons in list`);
 
   for (const val of vals) {
     await valSync(val);
   }
+
+  // Make sure the final changes reach the Yjs server before we exit.
+  await kv.flush();
 }
 
 type File = {
@@ -75,13 +79,17 @@ async function valSync({ id, name, ...meta }: { name: string; id: string }) {
 
     const filteredFiles = files.filter(({ type }) => type !== "directory");
 
-    // Sync to Yjs
-    const valMap = valsDoc.getMap(name);
-    valsDoc.transact(() => {
+    // Mirror the val + file list into the shared Yjs doc's structured maps so
+    // the editor's file tree (which reads `getMap(name)` / `getMap("files")`)
+    // stays in sync alongside the KV metadata.
+    const doc = await getDoc();
+    const valMap = doc.getMap(name);
+    const fileMap = doc.getMap<{ path: string; type: "file" | "http" | "directory" }>("files");
+    doc.transact(() => {
       valMap.set("name", name);
       valMap.set("id", id);
       for (const [key, val] of Object.entries(meta)) {
-        valMap.set(key, val);
+        valMap.set(key, val as any);
       }
       valMap.set("files", filteredFiles.map(({ key }) => key));
 
@@ -89,56 +97,39 @@ async function valSync({ id, name, ...meta }: { name: string; id: string }) {
         fileMap.set(key, {
           ...file,
           val: id,
-        })
+        } as any)
       );
     });
 
-    // Store val metadata in KV
-    const valData = {
+    // Store val metadata
+    await kv.set(`val:${name}`, {
       name,
       id,
       ...meta,
       files: filteredFiles.map(({ key }) => key),
-    };
-    
-    await kv.set(`val:${name}`, valData);
+    });
 
-    // Store each file metadata and content in KV, and sync content to Yjs
+    // Store each file's metadata and content
     for (const { key, ...file } of filteredFiles) {
-      // Store file metadata in KV
-      await kv.set(`file:${key}`, {
-        ...file,
-        val: id,
-      });
+      await kv.set(`file:${key}`, { ...file, val: id });
 
-      // Get and store file content
       try {
-        const content = await client.vals.files.getContent(id, { 
-          path: file.path, 
-          name: file.name 
+        const content = await client.vals.files.getContent(id, {
+          path: file.path,
+          name: file.name,
         }).then(res => res.text());
-        
-        // Sync content to Yjs
-        const yText = valsDoc.getText(key);
-        valsDoc.transact(() => {
-          yText.delete(0, yText.length);
-          yText.insert(0, content);
-        });
-        
-        // Store content in KV (with size limit)
-        if (content.length < 1000000) {
-          await kv.set(`content:${key}`, content);
-        } else {
-          console.warn(`Skipping large file ${key} (${content.length} chars) for KV storage`);
-        }
-        
-        console.log(`Synced file to both Yjs and KV: ${key}`);
+
+        // `content:` keys write straight into doc.getText(key) via the store,
+        // which is what the live editor renders.
+        await kv.set(`content:${key}`, content);
+
+        console.log(`Synced file to Yjs: ${key}`);
       } catch (err) {
         console.error(`Error syncing content for ${key}:`, err);
       }
     }
 
-    console.log(`Synced val to both Yjs and KV: ${name} with ${filteredFiles.length} files`);
+    console.log(`Synced val to Yjs: ${name} with ${filteredFiles.length} files`);
   } catch (err) {
     console.error(`Error syncing val ${name}:`, err);
   }

@@ -1,6 +1,6 @@
 /** @jsxImportSource https://esm.sh/hono@latest/jsx */
 import { jsxRenderer } from "https://esm.sh/hono/jsx-renderer";
-import { openKv } from "https://esm.town/v/pomdtr/kv";
+import { openKv } from "./store.ts";
 import { Hono } from "npm:hono";
 import { PropsWithChildren } from "npm:hono/jsx";
 import config from "./config.json" with { type: "json" };

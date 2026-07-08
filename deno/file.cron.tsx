@@ -1,6 +1,6 @@
 /** @jsxImportSource npm:hono@latest/jsx */
 
-import { openKv } from "https://esm.town/v/pomdtr/kv";
+import { openKv } from "./store.ts";
 import { Hono } from "npm:hono";
 import { Context } from "npm:hono";
 import { createMiddleware } from "npm:hono/factory";

@@ -1,98 +1,64 @@
 /**
- * Object-store backed drop-in replacement for `https://esm.town/v/pomdtr/kv`.
+ * Yjs-backed key/value store.
  *
- * Instead of Val Town's SQLite KV (which namespaces data per-val and does not
- * persist/share across local processes), this uses Val Town's Blob storage —
- * an S3-style object store keyed by strings. Because it is a remote object
- * store, the same data is visible to every process (the `sync` job, the web
- * server, one-off scripts), which is exactly what this app needs.
+ * Drop-in replacement for `https://esm.town/v/pomdtr/kv` (`openKv`). Instead of
+ * Val Town's SQLite KV, every value lives in the shared Yjs document (`@vals`)
+ * that the sync job and the collaborative `<ts-editor>` already use. That makes
+ * Yjs the single source of truth for the whole app:
  *
- * The public API mirrors `openKv()` so existing call sites only change their
- * import path:
+ *   - `content:<zon>:<file>`  -> stored in `doc.getText("<zon>:<file>")`, the
+ *     exact Y.Text the live editor binds to, so saves/edits stay in sync.
+ *   - every other key         -> stored in a top-level `doc.getMap("kv")`.
  *
- *   const kv = openKv();
- *   await kv.set("zons:list", value);   // JSON object stored as a blob
- *   const value = await kv.get("zons:list");
- *   await kv.list("file:");             // keys with a given prefix
- *   await kv.delete("file:foo");
+ * The store connects to the same Hocuspocus server as the editor and waits for
+ * the initial sync before reading, so a freshly started process sees whatever
+ * previous runs / the cron sync persisted.
  */
+import * as Y from "https://esm.sh/yjs@13.6.23?target=esnext";
+import {
+  HocuspocusProvider,
+  HocuspocusProviderWebsocket,
+} from "https://esm.sh/@hocuspocus/provider@2.15.0?&external=ws&target=esnext&yjs=13.6.23";
+import config from "./config.json" with { type: "json" };
 
-const API_URL = "https://api.val.town";
+const ROOM = config.editor.yjs.room; // "@vals"
+const URL = Deno.env.get("YJS_URL") || config.editor.yjs.url;
 
-// All keys live under this object-store prefix so they form a clean, isolated
-// "bucket" and never collide with other blobs on the account.
-const NAMESPACE = "registry/";
+// WebSocket polyfill for the Deno / server runtime.
+const WS = typeof WebSocket !== "undefined"
+  ? WebSocket
+  : (await import("https://esm.sh/ws?target=esnext")).default;
 
-function token(): string {
-  const t = Deno.env.get("VAL_TOWN_API_KEY") ?? Deno.env.get("valtown");
-  if (!t) {
-    throw new Error(
-      "Missing Val Town token: set VAL_TOWN_API_KEY (or `valtown`) in the environment.",
-    );
-  }
-  return t;
-}
+const CONTENT_PREFIX = "content:";
+const KV_MAP = "kv";
 
-function authHeaders(): HeadersInit {
-  return { Authorization: `Bearer ${token()}` };
-}
+let cached: { doc: Y.Doc; provider: HocuspocusProvider; ready: Promise<void> } | null = null;
 
-function blobKey(key: string): string {
-  return `${NAMESPACE}${key}`;
-}
+function connect() {
+  if (cached) return cached;
 
-async function get<T = unknown>(key: string): Promise<T | undefined> {
-  const res = await fetch(
-    `${API_URL}/v1/blob/${encodeURIComponent(blobKey(key))}`,
-    { headers: authHeaders() },
-  );
-  if (res.status === 404) return undefined;
-  if (!res.ok) {
-    throw new Error(`Blob get failed for "${key}": ${res.status} ${await res.text()}`);
-  }
-  const text = await res.text();
-  if (!text) return undefined;
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    // Stored as a plain (non-JSON) string.
-    return text as unknown as T;
-  }
-}
+  const doc = new Y.Doc({ guid: ROOM });
+  const socket = new HocuspocusProviderWebsocket({ url: URL, WebSocketPolyfill: WS });
+  const provider = new HocuspocusProvider({
+    url: URL,
+    name: ROOM,
+    document: doc,
+    websocketProvider: socket,
+    preserveConnection: true,
+    broadcast: true,
+    forceSyncInterval: true,
+    connect: true,
+  });
 
-async function set(key: string, value: unknown): Promise<void> {
-  const body = typeof value === "string" ? value : JSON.stringify(value);
-  const res = await fetch(
-    `${API_URL}/v1/blob/${encodeURIComponent(blobKey(key))}`,
-    { method: "POST", headers: authHeaders(), body },
-  );
-  if (!res.ok) {
-    throw new Error(`Blob set failed for "${key}": ${res.status} ${await res.text()}`);
-  }
-}
+  const ready = new Promise<void>((resolve) => {
+    if (provider.isSynced) return resolve();
+    provider.on("synced", () => resolve());
+    // Safety net so a read never hangs forever if the server is unreachable.
+    setTimeout(resolve, 10_000);
+  });
 
-async function del(key: string): Promise<void> {
-  const res = await fetch(
-    `${API_URL}/v1/blob/${encodeURIComponent(blobKey(key))}`,
-    { method: "DELETE", headers: authHeaders() },
-  );
-  if (!res.ok && res.status !== 404) {
-    throw new Error(`Blob delete failed for "${key}": ${res.status} ${await res.text()}`);
-  }
-}
-
-async function list(prefix = ""): Promise<string[]> {
-  const fullPrefix = blobKey(prefix);
-  const res = await fetch(
-    `${API_URL}/v1/blob?prefix=${encodeURIComponent(fullPrefix)}`,
-    { headers: authHeaders() },
-  );
-  if (!res.ok) {
-    throw new Error(`Blob list failed for "${prefix}": ${res.status} ${await res.text()}`);
-  }
-  const entries = (await res.json()) as { key: string }[];
-  // Strip the namespace prefix so callers see their original keys.
-  return entries.map((e) => e.key.slice(NAMESPACE.length));
+  cached = { doc, provider, ready };
+  return cached;
 }
 
 export interface Kv {
@@ -100,9 +66,82 @@ export interface Kv {
   set(key: string, value: unknown): Promise<void>;
   delete(key: string): Promise<void>;
   list(prefix?: string): Promise<string[]>;
+  /** Wait until local changes have been flushed to the server. */
+  flush(): Promise<void>;
 }
 
-/** Returns an object-store-backed KV handle with the pomdtr/kv interface. */
-export function openKv(): Kv {
-  return { get, set, delete: del, list };
+async function get<T = unknown>(key: string): Promise<T | undefined> {
+  const { doc, ready } = connect();
+  await ready;
+  if (key.startsWith(CONTENT_PREFIX)) {
+    const text = doc.getText(key.slice(CONTENT_PREFIX.length)).toString();
+    return (text ? text : undefined) as T | undefined;
+  }
+  const value = doc.getMap(KV_MAP).get(key);
+  return (value === undefined ? undefined : value) as T | undefined;
 }
+
+async function set(key: string, value: unknown): Promise<void> {
+  const { doc, ready } = connect();
+  await ready;
+  if (key.startsWith(CONTENT_PREFIX)) {
+    const yText = doc.getText(key.slice(CONTENT_PREFIX.length));
+    doc.transact(() => {
+      yText.delete(0, yText.length);
+      yText.insert(0, String(value ?? ""));
+    });
+    return;
+  }
+  doc.getMap(KV_MAP).set(key, value as any);
+}
+
+async function del(key: string): Promise<void> {
+  const { doc, ready } = connect();
+  await ready;
+  if (key.startsWith(CONTENT_PREFIX)) {
+    const yText = doc.getText(key.slice(CONTENT_PREFIX.length));
+    doc.transact(() => yText.delete(0, yText.length));
+    return;
+  }
+  doc.getMap(KV_MAP).delete(key);
+}
+
+async function list(prefix = ""): Promise<string[]> {
+  const { doc, ready } = connect();
+  await ready;
+  const out: string[] = [];
+  for (const key of doc.getMap(KV_MAP).keys()) {
+    if (key.startsWith(prefix)) out.push(key);
+  }
+  return out;
+}
+
+async function flush(): Promise<void> {
+  const { provider, ready } = connect();
+  await ready;
+  // Wait until the provider reports no unsynced changes, then a short grace
+  // period so the final websocket frame reaches the server before exit.
+  const start = Date.now();
+  while ((provider as any).hasUnsyncedChanges && Date.now() - start < 10_000) {
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  await new Promise((r) => setTimeout(r, 500));
+}
+
+/** Returns a Yjs-backed KV handle with the pomdtr/kv interface. */
+export function openKv(): Kv {
+  return { get, set, delete: del, list, flush };
+}
+
+/**
+ * Returns the shared `@vals` Yjs document (connected to the same Hocuspocus
+ * server as the editor), waiting for the initial sync. Use this when you need
+ * direct access to Y.Map / Y.Text structures instead of the KV interface.
+ */
+export async function getDoc(): Promise<Y.Doc> {
+  const { doc, ready } = connect();
+  await ready;
+  return doc;
+}
+
+export default openKv;
