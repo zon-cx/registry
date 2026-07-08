@@ -1,5 +1,8 @@
 node_modules
 
+# Project-local Deno install (bootstrapped by scripts/dev.sh)
+/.deno
+
 /.cache
 /public/build
 /build
