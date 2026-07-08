@@ -1,16 +1,18 @@
-import { openKv } from "https://esm.town/v/pomdtr/kv";
+import { openKv } from "./store.ts";
 
+const mode = Deno.args[0]; // "write" | "read"
 const kv = openKv();
+const stamp = Deno.args[1] ?? "";
 
-// 1. small value, same-process roundtrip
-await kv.set("zons:list", [{ name: "x" }, { name: "y" }]);
-const back = await kv.get("zons:list").catch((e) => "ERR:" + e.message);
-console.log("[v0] small zons:list roundtrip:", JSON.stringify(back));
-
-// 2. read a file: key sync claims it wrote earlier (cross-process persistence)
-const fk = await kv.get("file:editor:main.tsx").catch((e) => "ERR:" + e.message);
-console.log("[v0] file:editor:main.tsx present?:", fk ? "YES" : "NO", typeof fk);
-
-// 3. read val: key
-const vk = await kv.get("val:editor").catch((e) => "ERR:" + e.message);
-console.log("[v0] val:editor present?:", vk ? "YES" : "NO");
+if (mode === "write") {
+  await kv.set("probe:hello", { msg: "yjs-store-works", stamp });
+  await kv.set("content:demo:file.http", "export default 'hi " + stamp + "'");
+  await kv.flush();
+  console.log("[v0] wrote probe with stamp", stamp);
+} else {
+  const v = await kv.get("probe:hello");
+  const c = await kv.get("content:demo:file.http");
+  console.log("[v0] read probe:hello =", JSON.stringify(v));
+  console.log("[v0] read content:demo:file.http =", JSON.stringify(c));
+}
+Deno.exit(0);
