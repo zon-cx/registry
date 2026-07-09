@@ -24,7 +24,18 @@ import {
 import config from "./config.json" with { type: "json" };
 
 const ROOM = config.editor.yjs.room; // "@vals"
-const URL = Deno.env.get("YJS_URL") || config.editor.yjs.url;
+
+// Read an env var from whichever runtime we're on (Deno or Node), never
+// throwing if access isn't permitted.
+function envVar(key: string): string | undefined {
+  try {
+    if (typeof Deno !== "undefined") return Deno.env.get(key);
+  } catch { /* env access not permitted */ }
+  if (typeof process !== "undefined") return process.env?.[key];
+  return undefined;
+}
+
+const URL = envVar("YJS_URL") || config.editor.yjs.url;
 
 // WebSocket polyfill for the Deno / server runtime.
 const WS = typeof WebSocket !== "undefined"
