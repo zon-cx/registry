@@ -4,7 +4,7 @@
   "sideEffects": false,
   "type": "module",
   "scripts": {
-    "build": "remix vite:build",
+    "build": "node_modules/.bin/deno cache --allow-import deno/main.tsx || true",
     "dev": "bash scripts/dev.sh",
     "dev:node": "node --import tsx --import ./scripts/node-register.mjs deno/node.ts",
     "dev:remix": "remix vite:dev",
