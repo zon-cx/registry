@@ -559,6 +559,7 @@
     }
   },
   "redirects": {
+    "https://esm.sh/@types/ws@~8.18.1/index.d.mts": "https://esm.sh/@types/ws@8.18.1/index.d.mts",
     "https://esm.sh/@valtown/sdk": "https://esm.sh/@valtown/sdk@1.0.0",
     "https://esm.sh/hono": "https://esm.sh/hono@4.7.2",
     "https://esm.sh/hono/jsx-renderer": "https://esm.sh/hono@4.7.7/jsx-renderer",
