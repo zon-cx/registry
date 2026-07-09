@@ -39,6 +39,18 @@ try {
 }
 `;
 
+// After htmx settles a swap into #tile (an editor tile), bring it into view.
+// A delegated listener on the document survives swaps and needs no per-element
+// attribute (JSX can't express the `hx-on:htmx:after-settle` colon syntax).
+const TILE_SCROLL = `
+document.addEventListener("htmx:afterSettle", (e) => {
+  const t = e.target;
+  if (t && t.id === "tile") {
+    t.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+});
+`;
+
 // The document shell. On an htmx request we render just the children so the
 // response is a clean fragment for swapping; the persistent <head> (and the live
 // Yjs connection it holds) is never torn down.
@@ -94,6 +106,14 @@ const renderer = jsxRenderer(
             type="module"
             hx-preserve="true"
             dangerouslySetInnerHTML={{ __html: YJS_PRECONNECT }}
+          >
+          </script>
+          {/* When an editor tile is swapped into #tile, scroll it into view so
+              the editor is visible instead of appearing below the fold. */}
+          <script
+            id="tile-scroll"
+            hx-preserve="true"
+            dangerouslySetInnerHTML={{ __html: TILE_SCROLL }}
           >
           </script>
         </head>

@@ -208,7 +208,7 @@ handler.get("/:zon", async (c) => {
           without a full page reload, so the shared Yjs connection stays alive. A
           direct visit to a file URL loads the standalone editor page instead. */}
       {files.length > 0 && (
-        <section id="tile" className="mt-4">
+        <section id="tile" className="mt-4 scroll-mt-4">
           <div className="text-center py-16 bg-white rounded-lg border border-dashed border-gray-300">
             <iconify-icon icon="lucide:mouse-pointer-click" className="h-10 w-10 text-gray-400"></iconify-icon>
             <p className="text-gray-600 mt-3">Select a file above to open its editor here.</p>

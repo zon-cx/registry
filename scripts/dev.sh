@@ -40,4 +40,7 @@ export URL_ZON="${URL_ZON:-/zon}"
 export URL_FILES="${URL_FILES:-/file}"
 
 echo "[dev] Starting Deno registry server on port $DEV_PORT ..."
+# NOTE: no --watch. A churning deno/node_modules/.deno.lock.poll file makes the
+# Deno watcher restart in an endless loop here (even with --watch-exclude), so
+# the server is launched once. Restart the dev task to pick up code changes.
 exec "$DENO_BIN" run -A "$ROOT/deno/main.tsx"
