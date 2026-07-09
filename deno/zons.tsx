@@ -1,4 +1,4 @@
-/** @jsxImportSource npm:hono@latest/jsx */
+/** @jsxImportSource npm:hono/jsx */
 import { openKv } from "./store.ts";
 import { Hono } from "npm:hono";
 import config from "./config.json" with { type: "json" };

@@ -1,4 +1,4 @@
-/** @jsxImportSource npm:hono@latest/jsx */
+/** @jsxImportSource npm:hono/jsx */
 
 // Shared HTML shell + app factory.
 //

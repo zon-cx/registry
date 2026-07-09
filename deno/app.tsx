@@ -1,4 +1,4 @@
-/** @jsxImportSource npm:hono@latest/jsx */
+/** @jsxImportSource npm:hono/jsx */
 
 // Combined router — the single source of truth for how every feature router is
 // composed onto one Hono app under one origin and one shared renderer.
