@@ -1,36 +1,15 @@
-/** @jsxImportSource https://esm.sh/hono@latest/jsx */
-import { jsxRenderer } from "https://esm.sh/hono/jsx-renderer";
+/** @jsxImportSource npm:hono@latest/jsx */
 import { openKv } from "./store.ts";
 import { Hono } from "npm:hono";
-import { PropsWithChildren } from "npm:hono/jsx";
 import config from "./config.json" with { type: "json" };
 import { urls } from "./urls.ts";
+import { createApp } from "./renderer.tsx";
 
-const app = new Hono();
+// Routes only — the shell/renderer (and hx-boost navigation) is applied once by
+// main.tsx (combined) or by the standalone `export default` below.
+const handler = new Hono();
 
-app.use(
-  "/*",
-  jsxRenderer(({ children }: PropsWithChildren) => {
-    return (
-      <html lang="en">
-        <head>
-          <meta charSet="utf-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1" />
-          <title>Zon Gallery</title>
-          <meta name="description" content="Welcome to Zon" />
-          <script hx-preserve="true" src="https://unpkg.com/@tailwindcss/browser@4"></script>
-          <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-        </head>
-        <body className="bg-gray-50 min-h-screen">
-          {children}
-          <script dangerouslySetInnerHTML={{ __html: `lucide.createIcons();` }} />
-        </body>
-      </html>
-    );
-  }),
-);
-
-app.get("/", async (c: any) => {
+handler.get("/", async (c: any) => {
   const kv = openKv();
   const zons = await kv.get("zons:list") || [];
 
@@ -46,11 +25,11 @@ app.get("/", async (c: any) => {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-gray-900/80 to-transparent flex flex-col justify-end p-8">
           <div className="flex items-center mb-2">
-            <i
-              data-lucide="folder-kanban"
+            <iconify-icon
+              icon="lucide:folder-kanban"
               className="w-10 h-10 text-blue-400 mr-3 bg-white/10 rounded-full p-2 border border-white/20"
             >
-            </i>
+            </iconify-icon>
             <h1 className="text-4xl font-bold text-white drop-shadow">Zon Gallery</h1>
           </div>
           <p className="text-lg text-gray-200 max-w-2xl">
@@ -68,7 +47,7 @@ app.get("/", async (c: any) => {
             <div className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center space-x-2">
-                  <i data-lucide="globe" className="h-5 w-5 text-gray-500"></i>
+                  <iconify-icon icon="lucide:globe" className="h-5 w-5 text-gray-500"></iconify-icon>
                   <h3 className="text-lg font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
                     {zon.name}
                   </h3>
@@ -82,17 +61,17 @@ app.get("/", async (c: any) => {
               <div className="flex items-center justify-between text-sm text-gray-500">
                 <div className="flex items-center space-x-4">
                   <div className="flex items-center">
-                    <i data-lucide="star" className="h-4 w-4 mr-1"></i>
+                    <iconify-icon icon="lucide:star" className="h-4 w-4 mr-1"></iconify-icon>
                     <span>{zon.likeCount || 0}</span>
                   </div>
                   <div className="flex items-center">
-                    <i data-lucide="git-fork" className="h-4 w-4 mr-1"></i>
+                    <iconify-icon icon="lucide:git-fork" className="h-4 w-4 mr-1"></iconify-icon>
                     <span>{zon.referenceCount || 0}</span>
                   </div>
                 </div>
                 <div className="flex items-center space-x-4">
                   <div className="flex items-center">
-                    <i data-lucide="user" className="h-4 w-4 mr-1"></i>
+                    <iconify-icon icon="lucide:user" className="h-4 w-4 mr-1"></iconify-icon>
                     <span>{zon.author?.username || ""}</span>
                   </div>
                 </div>
@@ -108,4 +87,8 @@ app.get("/", async (c: any) => {
   );
 });
 
-export default app.fetch;
+// Routes for the combined router (main.tsx) to compose.
+export { handler };
+
+// Standalone Val Town deploy: wrap the routes in the shared renderer.
+export default createApp().route("/", handler).fetch;

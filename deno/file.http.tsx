@@ -4,12 +4,13 @@ import { openKv } from "./store.ts";
 import { Hono } from "npm:hono";
 import { Context } from "npm:hono";
 import { createMiddleware } from "npm:hono/factory";
-import { PropsWithChildren } from "npm:hono/jsx";
-import { jsxRenderer } from "npm:hono/jsx-renderer";
 import config from "./config.json" with { type: "json" };
 import { urls } from "./urls.ts";
+import { createApp } from "./renderer.tsx";
 
-const app = new Hono();
+// Routes only — the shell/renderer is applied once by main.tsx (combined) or by
+// the standalone `export default` at the bottom of this file.
+const handler = new Hono();
 
 // File type definitions from config
 interface FileType {
@@ -28,43 +29,14 @@ function isHttpFile(filename: string, valType?: string): boolean {
   return valType === "http" || valType === "script";
 }
 
-// JSX renderer setup
-app.use(
-  "*",
-  jsxRenderer(({ children }: PropsWithChildren) => {
-    return (
-      <html lang="en">
-        <head>
-          <title>HTTP File Editor</title>
-          <meta charSet="utf-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1" />
-          <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
-          <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-          <script src="https://esm.sh/@cxai/ide@1.0.19" type="module"></script>
-          <style>
-            {`
-            .file-type-http { @apply border-l-4 border-green-500; }
-            .http-indicator { @apply bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium; }
-          `}
-          </style>
-        </head>
-        <body className="bg-gray-50 min-h-screen">
-          <div id="app">{children}</div>
-          <script dangerouslySetInnerHTML={{ __html: `lucide.createIcons();` }} />
-        </body>
-      </html>
-    );
-  }),
-);
-
 // Routes
 
-app.get("/", async (c: Context) => {
+handler.get("/", async (c: Context) => {
   return c.redirect(`/${config.main.zon}/${config.main.http}`);
 });
 
 // API endpoint to get specific file content
-app.get("/:zon/:file/raw", async (c: Context) => {
+handler.get("/:zon/:file/raw", async (c: Context) => {
   const { zon, file } = c.req.param();
   const kv = openKv();
 
@@ -92,7 +64,7 @@ app.get("/:zon/:file/raw", async (c: Context) => {
 });
 
 // HTTP file editor view
-app.get("/:zon/:file", async (c: Context) => {
+handler.get("/:zon/:file", async (c: Context) => {
   const { zon, file } = c.req.param();
   const kv = openKv();
 
@@ -138,14 +110,14 @@ app.get("/:zon/:file", async (c: Context) => {
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <a href={`${urls.zon}/${zon}`} className="text-blue-600 hover:text-blue-800">
-                  <i data-lucide="arrow-left" className="h-5 w-5"></i>
+                  <iconify-icon icon="lucide:arrow-left" className="h-5 w-5"></iconify-icon>
                 </a>
                 <div className="flex items-center space-x-3">
-                  <i data-lucide={fileType.icon} className={`h-6 w-6 text-${fileType.color}-500`}></i>
+                  <iconify-icon icon={`lucide:${fileType.icon}`} className={`h-6 w-6 text-${fileType.color}-500`}></iconify-icon>
                   <div>
                     <div className="flex items-center space-x-2">
                       <h1 className="text-xl font-semibold text-gray-900">{file}</h1>
-                      <span className="http-indicator">HTTP</span>
+                      <span className="http-indicator bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">HTTP</span>
                     </div>
                     <p className="text-sm text-gray-600">{zon} • {fileType.description}</p>
                   </div>
@@ -158,7 +130,7 @@ app.get("/:zon/:file", async (c: Context) => {
                     id="saveButton"
                     className="flex items-center px-4 py-2 rounded-md text-white bg-blue-500 hover:bg-blue-600 transition-colors"
                   >
-                    <i data-lucide="save" className="h-4 w-4 mr-2"></i>
+                    <iconify-icon icon="lucide:save" className="h-4 w-4 mr-2"></iconify-icon>
                     Save
                   </button>
                 </form>
@@ -168,7 +140,7 @@ app.get("/:zon/:file", async (c: Context) => {
                   className="flex items-center px-4 py-2 rounded-md text-white bg-green-500 hover:bg-green-600 transition-colors"
                   onclick={`window.open('https://${zon}.val.run', '_blank')`}
                 >
-                  <i data-lucide="play" className="h-4 w-4 mr-2"></i>
+                  <iconify-icon icon="lucide:play" className="h-4 w-4 mr-2"></iconify-icon>
                   Run HTTP
                 </button>
               </div>
@@ -177,10 +149,10 @@ app.get("/:zon/:file", async (c: Context) => {
         </div>
 
         <div className="container mx-auto px-4 py-4">
-          <div className="bg-white rounded-lg shadow-lg overflow-hidden file-type-http">
+          <div className="bg-white rounded-lg shadow-lg overflow-hidden border-l-4 border-green-500">
             <div className="bg-green-50 px-4 py-2 border-b border-green-200">
               <div className="flex items-center space-x-2">
-                <i data-lucide="globe" className="h-4 w-4 text-green-600"></i>
+                <iconify-icon icon="lucide:globe" className="h-4 w-4 text-green-600"></iconify-icon>
                 <span className="text-sm font-medium text-green-800">HTTP Endpoint</span>
                 <span className="text-xs text-green-600">• Handles web requests and responses</span>
               </div>
@@ -206,7 +178,7 @@ app.get("/:zon/:file", async (c: Context) => {
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Error</h1>
           <p className="text-gray-600 mb-4">Failed to load HTTP file editor.</p>
-          <a href={config.urls.zons} className="text-blue-600 hover:text-blue-800">← Back to Gallery</a>
+          <a href={urls.zons} className="text-blue-600 hover:text-blue-800">← Back to Gallery</a>
         </div>
       </div>,
     );
@@ -215,11 +187,11 @@ app.get("/:zon/:file", async (c: Context) => {
 
 const authorization = createMiddleware(async function(c: Context) {
   // Authorization disabled for development// file is not realy saved
-  return ; 
+  return;
 });
 
 // Save HTTP file endpoint
-app.post("/:zon/:file", authorization, async (c: Context) => {
+handler.post("/:zon/:file", authorization, async (c: Context) => {
   const { zon, file } = c.req.param();
   const { content } = await c.req.json();
   const kv = openKv();
@@ -244,10 +216,13 @@ app.post("/:zon/:file", authorization, async (c: Context) => {
 });
 
 // Unwrap Hono errors to see original error details
-app.onError((err, c) => {
+handler.onError((err, c) => {
   console.error(err);
   throw err;
 });
 
-// Start the server
-export default app.fetch;
+// Routes for the combined router (main.tsx) to compose.
+export { handler };
+
+// Standalone Val Town deploy: wrap the routes in the shared renderer.
+export default createApp().route("/", handler).fetch;

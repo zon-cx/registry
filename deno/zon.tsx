@@ -1,14 +1,14 @@
 /** @jsxImportSource npm:hono@latest/jsx */
 
-import { readFile } from "https://esm.town/v/std/utils@85-main/index.ts";
 import { openKv } from "./store.ts";
 import { Hono } from "npm:hono";
-import { PropsWithChildren } from "npm:hono/jsx";
-import { jsxRenderer } from "npm:hono/jsx-renderer";
 import config from "./config.json" with { type: "json" };
 import { urls } from "./urls.ts";
+import { createApp } from "./renderer.tsx";
 
-const app = new Hono();
+// Routes only — the shell/renderer (and hx-boost navigation) is applied once by
+// main.tsx (combined) or by the standalone `export default` below.
+const handler = new Hono();
 
 // File type definitions from config
 type TypeInfo = {
@@ -29,40 +29,33 @@ type File = {
   fileName: string;
 };
 
-function getFileTypeInfo(file: File): TypeInfo {
+// Normalize a file to its config type key (e.g. an extension-less "file" entry
+// resolves to its extension).
+function resolveType(file: File): string {
   const fileName = file.name || file.path || file.fileName;
   const extension = fileName?.split(".").pop()?.toLowerCase();
-  const type: keyof typeof FILE_TYPE_CONFIG = file.type === "file" ? extension ?? "default" : file.type ?? "default";
+  return file.type === "file" ? extension ?? "default" : file.type ?? "default";
+}
 
-  console.log({ type, fileName, extension, config: FILE_TYPE_CONFIG[type] });
-
-  // Check by val type first
+function getFileTypeInfo(file: File): TypeInfo {
+  const type = resolveType(file);
   return FILE_TYPE_CONFIG[type] || FILE_TYPE_CONFIG.default;
 }
 
-app.use(
-  "/*",
-  jsxRenderer(({ children }: PropsWithChildren) => {
-    return (
-      <html lang="en">
-        <head>
-          <meta charSet="utf-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1" />
-          <title>Zon File Gallery</title>
-          <meta name="description" content="Browse and manage files in your zons" />
-          <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
-          <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-        </head>
-        <body className="bg-gray-50 min-h-screen">
-          {children}
-          <script dangerouslySetInnerHTML={{ __html: `lucide.createIcons();` }} />
-        </body>
-      </html>
-    );
-  }),
-);
+// Pick the editor route for a file type. In the combined app each editor is
+// mounted as a sibling path (/file, /file.http, ...), so we can deep-link and
+// htmx-swap the matching tile. In production each editor is its own val, so we
+// fall back to the shared files URL.
+function editorBase(file: File): string {
+  if (!urls.files.startsWith("/")) return urls.files;
+  const type = resolveType(file);
+  if (type === "http" || type === "script") return "/file.http";
+  if (type === "interval" || type === "cron") return "/file.cron";
+  if (type === "md") return "/file.readme";
+  return "/file";
+}
 
-app.get("/:zon/files", async (c) => {
+handler.get("/:zon/files", async (c) => {
   const { files } = await getZon(c.req.param("zon"));
   return c.json({
     files: files,
@@ -72,11 +65,11 @@ app.get("/:zon/files", async (c) => {
 
 async function getZon(zon: string) {
   const kv = openKv();
-  
+
   try {
     // Get val metadata from KV
     const valData = await kv.get(`val:${zon}`);
-    
+
     if (!valData) {
       return {
         files: [],
@@ -88,7 +81,7 @@ async function getZon(zon: string) {
     // Get files for this val from KV
     const files = [];
     const fileKeys = valData.files || [];
-    
+
     for (const fileKey of fileKeys) {
       const fileData = await kv.get(`file:${fileKey}`);
       if (fileData) {
@@ -115,19 +108,18 @@ async function getZon(zon: string) {
   }
 }
 
-app.get("/", async (c: any) => {
+handler.get("/", async (c: any) => {
   return c.redirect(`/${config.main.zon}`);
 });
 
-app.get("/:zon", async (c) => {
+handler.get("/:zon", async (c) => {
   // Get zon data from KV
   const zon = c.req.param("zon");
   const { files } = await getZon(zon);
 
   function withTypeInfo(file: File) {
     const fileName = file.name || file.path || file.fileName;
-
-    return { ...file, typeInfo: getFileTypeInfo(file), name: fileName };
+    return { ...file, typeInfo: getFileTypeInfo(file), base: editorBase(file), name: fileName };
   }
 
   return c.render(
@@ -135,27 +127,31 @@ app.get("/:zon", async (c) => {
       <div className="mb-8">
         <div className="flex items-center space-x-3 mb-4">
           <a href={urls.zons} className="text-blue-600 hover:text-blue-800">
-            <i data-lucide="arrow-left" className="h-5 w-5"></i>
+            <iconify-icon icon="lucide:arrow-left" className="h-5 w-5"></iconify-icon>
           </a>
           <h1 className="text-3xl font-bold text-gray-900">{zon}</h1>
         </div>
       </div>
       <section className="mb-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {files.map(withTypeInfo).map(({ typeInfo, ...file }) => (
+          {files.map(withTypeInfo).map(({ typeInfo, base, ...file }) => (
             <a
               key={file.name}
-              href={`${urls.files}/${zon}/${file.name}`}
-              className="block bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-200 overflow-hidden border border-gray-100 group"
+              href={`${base}/${zon}/${file.name}`}
+              hx-get={`${base}/${zon}/${file.name}`}
+              hx-target="#tile"
+              hx-swap="innerHTML"
+              hx-push-url="true"
+              className="block bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-200 overflow-hidden border border-gray-100 group cursor-pointer"
             >
               <div className="p-4">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center space-x-2">
-                    <i
-                      data-lucide={typeInfo?.icon}
+                    <iconify-icon
+                      icon={`lucide:${typeInfo?.icon}`}
                       className={`h-5 w-5 text-${typeInfo.color}-500`}
                     >
-                    </i>
+                    </iconify-icon>
                     <h3 className="text-lg font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
                       {file.name}
                     </h3>
@@ -178,12 +174,12 @@ app.get("/:zon", async (c) => {
                 <div className="flex items-center justify-between text-sm text-gray-500">
                   <div className="flex items-center space-x-4">
                     <div className="flex items-center">
-                      <i data-lucide="edit" className="h-4 w-4 mr-1"></i>
+                      <iconify-icon icon="lucide:edit" className="h-4 w-4 mr-1"></iconify-icon>
                       <span>Edit</span>
                     </div>
                     {file.type === "http" && (
                       <div className="flex items-center">
-                        <i data-lucide="external-link" className="h-4 w-4 mr-1"></i>
+                        <iconify-icon icon="lucide:external-link" className="h-4 w-4 mr-1"></iconify-icon>
                         <span>Run</span>
                       </div>
                     )}
@@ -202,13 +198,29 @@ app.get("/:zon", async (c) => {
 
       {files.length === 0 && (
         <div className="text-center py-12">
-          <i data-lucide="folder-open" className="h-16 w-16 text-gray-400 mx-auto mb-4"></i>
+          <iconify-icon icon="lucide:folder-open" className="h-16 w-16 text-gray-400 mx-auto mb-4"></iconify-icon>
           <h3 className="text-xl font-medium text-gray-900 mb-2">No files found</h3>
           <p className="text-gray-600">This zon doesn't contain any files yet.</p>
         </div>
+      )}
+
+      {/* Tile region: file editors are swapped in here by htmx (hx-target="#tile")
+          without a full page reload, so the shared Yjs connection stays alive. A
+          direct visit to a file URL loads the standalone editor page instead. */}
+      {files.length > 0 && (
+        <section id="tile" className="mt-4">
+          <div className="text-center py-16 bg-white rounded-lg border border-dashed border-gray-300">
+            <iconify-icon icon="lucide:mouse-pointer-click" className="h-10 w-10 text-gray-400"></iconify-icon>
+            <p className="text-gray-600 mt-3">Select a file above to open its editor here.</p>
+          </div>
+        </section>
       )}
     </main>,
   );
 });
 
-export default app.fetch;
+// Routes for the combined router (main.tsx) to compose.
+export { handler };
+
+// Standalone Val Town deploy: wrap the routes in the shared renderer.
+export default createApp().route("/", handler).fetch;
