@@ -16,6 +16,7 @@
 
 import { Hono } from "npm:hono";
 import type { Context } from "npm:hono";
+import { raw } from "npm:hono/html";
 import type { PropsWithChildren } from "npm:hono/jsx";
 import { jsxRenderer } from "npm:hono/jsx-renderer";
 import config from "./config.json" with { type: "json" };
@@ -44,8 +45,14 @@ try {
 const renderer = jsxRenderer(
   ({ children }: PropsWithChildren, c: Context) => {
     if (isHx(c)) return <>{children}</>;
+    // NOTE: hono 4.7.x's jsxRenderer ignores a function-form options arg, so we
+    // cannot let it compute `docType` per-request. Instead options are static
+    // (`docType: false`) and we emit the DOCTYPE ourselves here — only on the
+    // full-document (non-htmx) response.
     return (
-      <html lang="en" className="bg-gray-50">
+      <>
+        {raw("<!DOCTYPE html>")}
+        <html lang="en" className="bg-gray-50">
         <head>
           <meta charSet="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -100,11 +107,14 @@ const renderer = jsxRenderer(
         >
           {children}
         </body>
-      </html>
+        </html>
+      </>
     );
   },
-  // Suppress the auto `<!DOCTYPE html>` on htmx fragments; stream everything.
-  (c: Context) => ({ stream: true, docType: !isHx(c) }),
+  // Static options (hono 4.7.x ignores the function form). We never let the
+  // renderer auto-prepend a DOCTYPE — the component emits it manually for the
+  // full document and omits it for htmx fragments. Stream the response.
+  { stream: true, docType: false },
 );
 
 /**
