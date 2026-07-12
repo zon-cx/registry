@@ -36,9 +36,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </header>
         <main id="route-content" tabIndex={-1}>{children}</main>
         <script dangerouslySetInnerHTML={{ __html: `
+          function initializeEmptyEditors(root) {
+            var editors = (root || document).querySelectorAll('ts-editor[value]');
+            editors.forEach(function (editor) {
+              var initialValue = editor.getAttribute('value');
+              if (initialValue && !editor.value) editor.value = initialValue;
+            });
+          }
+
+          document.addEventListener('cm:ts:ready', function (event) {
+            initializeEmptyEditors(event.target && event.target.parentNode);
+          });
+          document.addEventListener('DOMContentLoaded', function () {
+            window.setTimeout(function () { initializeEmptyEditors(document); }, 500);
+          });
           document.addEventListener('htmx:afterSettle', function (event) {
             if (event.detail && event.detail.target && event.detail.target.id === 'route-content') {
               event.detail.target.focus({ preventScroll: true });
+              window.setTimeout(function () { initializeEmptyEditors(event.detail.target); }, 500);
             }
           });
         ` }} />

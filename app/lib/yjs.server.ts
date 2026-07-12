@@ -33,6 +33,58 @@ type Connection = {
   ready: Promise<void>;
 };
 
+const SEED_FILES = [
+  {
+    name: "zons.tsx",
+    type: "http",
+    content: `export default function Registry() {
+  return <main>Rendered from the shared @vals Yjs document.</main>
+}`,
+  },
+  {
+    name: "sync.ts",
+    type: "cron",
+    content: `export default async function sync() {
+  // Metadata and file bodies are persisted as Yjs shared types.
+  return { room: "@vals", source: "yjs" }
+}`,
+  },
+  {
+    name: "README.md",
+    type: "readme",
+    content: `# Registry\n\nReact Router renders the full document. htmx swaps only the active route fragment. Yjs is the single data source.`,
+  },
+] as const;
+
+function seedEmptyDocument(doc: Y.Doc) {
+  const kv = doc.getMap(KV_MAP);
+  if (Array.isArray(kv.get("zons:list"))) return;
+
+  doc.transact(() => {
+    kv.set("zons:list", [{
+      id: "registry",
+      name: "registry",
+      description: "React Router + htmx + Yjs rendering experiment",
+      type: "http",
+      author: { username: "zon-cx" },
+    }]);
+    kv.set("val:registry", { files: SEED_FILES.map((file) => `registry:${file.name}`) });
+
+    for (const file of SEED_FILES) {
+      const key = `registry:${file.name}`;
+      kv.set(`file:${key}`, {
+        key,
+        name: file.name,
+        path: file.name,
+        type: file.type,
+        version: "yjs-seed",
+      });
+      const text = doc.getText(key);
+      if (text.length === 0) text.insert(0, file.content);
+    }
+  }, "registry-seed");
+}
+
 declare global {
   var __registryYjs: Connection | undefined;
 }
@@ -46,11 +98,14 @@ function connect(): Connection {
     WebSocketPolyfill: WebSocket,
   });
   const provider = new HocuspocusProvider({
+    url: process.env.YJS_URL || DEFAULT_URL,
     name: ROOM,
     document: doc,
     websocketProvider,
     preserveConnection: true,
-    awareness: null,
+    broadcast: true,
+    forceSyncInterval: true,
+    connect: true,
   });
 
   const ready = new Promise<void>((resolve) => {
@@ -58,7 +113,7 @@ function connect(): Connection {
     const finish = () => resolve();
     provider.on("synced", finish);
     // SSR must remain responsive when the collaboration server is unavailable.
-    setTimeout(finish, 2_500);
+    setTimeout(finish, 10_000);
   });
 
   globalThis.__registryYjs = { doc, provider, ready };
@@ -68,6 +123,7 @@ function connect(): Connection {
 async function getDoc() {
   const connection = connect();
   await connection.ready;
+  seedEmptyDocument(connection.doc);
   return connection.doc;
 }
 

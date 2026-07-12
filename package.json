@@ -12,11 +12,12 @@
   },
   "dependencies": {
     "@cxai/ide": "^1.0.19",
-    "@hocuspocus/provider": "^4.3.0",
+    "@hocuspocus/provider": "^2.15.0",
     "@netlify/functions": "^2.6.0",
     "@react-router/node": "^7.18.1",
     "@react-router/serve": "^7.18.1",
     "@valtown/sdk": "^1.0.0",
+    "isbot": "^5",
     "lucide-react": "^1.24.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
