@@ -48,7 +48,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
             initializeEmptyEditors(event.target && event.target.parentNode);
           });
           document.addEventListener('DOMContentLoaded', function () {
-            window.setTimeout(function () { initializeEmptyEditors(document); }, 500);
+            window.setTimeout(function () {
+              if (window.htmx) window.htmx.process(document.body);
+              initializeEmptyEditors(document);
+            }, 500);
           });
           document.addEventListener('htmx:afterSettle', function (event) {
             if (event.detail && event.detail.target && event.detail.target.id === 'route-content') {

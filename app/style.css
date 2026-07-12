@@ -95,6 +95,16 @@ h2 { margin: 0; font-size: 1.05rem; letter-spacing: -0.02em; }
 
 .editor-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem; border: 1px solid color-mix(in srgb, var(--foreground) 12%, transparent); border-bottom: 0; border-radius: var(--radius) var(--radius) 0 0; background: var(--surface); }
 .editor-header h1 { font-size: clamp(1.45rem, 4vw, 2.25rem); }
+.type-detail-slot { min-height: 7.5rem; border-inline: 1px solid color-mix(in srgb, var(--foreground) 12%, transparent); background: var(--surface); }
+.type-detail-slot > p { margin: 0; padding: 1rem; color: var(--muted); font-family: var(--font-mono); font-size: 0.78rem; }
+.type-detail { display: flex; align-items: center; gap: 1rem; min-height: 7.5rem; padding: 1rem; border-inline: 1px solid color-mix(in srgb, var(--foreground) 12%, transparent); background: color-mix(in srgb, var(--brand) 5%, var(--surface)); }
+.type-detail-icon { display: grid; width: 2.6rem; height: 2.6rem; flex: 0 0 auto; place-items: center; border-radius: 0.7rem; background: color-mix(in srgb, var(--brand) 12%, var(--surface)); color: var(--brand); }
+.type-detail-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 0.2rem; }
+.type-detail-copy .eyebrow, .type-detail-copy h2, .type-detail-copy p { margin: 0; }
+.type-detail-copy p:last-child { color: var(--muted); font-size: 0.88rem; }
+.type-detail-meta { display: flex; flex: 0 0 auto; flex-direction: column; align-items: flex-end; gap: 0.35rem; color: var(--brand); font-family: var(--font-mono); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; }
+.type-detail-meta span { display: flex; align-items: center; gap: 0.35rem; }
+.type-detail-meta svg { width: 0.9rem; height: 0.9rem; }
 .editor-frame { height: min(65vh, 44rem); overflow: hidden; border: 1px solid color-mix(in srgb, var(--foreground) 12%, transparent); border-radius: 0 0 var(--radius) var(--radius); background: var(--surface); }
 ts-editor { display: block; width: 100%; height: 100%; }
 
@@ -113,6 +123,9 @@ ts-editor { display: block; width: 100%; height: 100%; }
 @media (max-width: 34rem) {
   .source-badge { display: none; }
   .view-header, .editor-header { align-items: flex-start; flex-direction: column; }
+  .type-detail { align-items: flex-start; flex-wrap: wrap; }
+  .type-detail-copy { flex-basis: calc(100% - 3.6rem); }
+  .type-detail-meta { width: 100%; flex-direction: row; align-items: center; justify-content: space-between; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
