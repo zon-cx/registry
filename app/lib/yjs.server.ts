@@ -98,14 +98,10 @@ function connect(): Connection {
     WebSocketPolyfill: WebSocket,
   });
   const provider = new HocuspocusProvider({
-    url: process.env.YJS_URL || DEFAULT_URL,
     name: ROOM,
     document: doc,
     websocketProvider,
-    preserveConnection: true,
-    broadcast: true,
-    forceSyncInterval: true,
-    connect: true,
+    awareness: null,
   });
 
   const ready = new Promise<void>((resolve) => {
@@ -113,7 +109,7 @@ function connect(): Connection {
     const finish = () => resolve();
     provider.on("synced", finish);
     // SSR must remain responsive when the collaboration server is unavailable.
-    setTimeout(finish, 10_000);
+    setTimeout(finish, 2_500);
   });
 
   globalThis.__registryYjs = { doc, provider, ready };
