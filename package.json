@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "node_modules/.bin/deno cache --allow-import deno/main.tsx || true",
-    "dev": "URL_ZONS=/ URL_ZON=/zon URL_FILES=/file deno serve -A --port ${DEV_PORT:-5173} --env-file=.env.development.local deno/main.tsx",
-    "dev:node": "node --import tsx --import ./scripts/node-register.mjs deno/node.ts",
+    "dev": "URL_ZONS=/ URL_ZON=/zon URL_FILES=/file node --env-file-if-exists=.env.development.local --import tsx --import ./scripts/node-register.mjs deno/node.ts",
+    "dev:deno": "URL_ZONS=/ URL_ZON=/zon URL_FILES=/file deno serve -A --port ${DEV_PORT:-5173} --env-file=.env.development.local deno/main.tsx",
     "postinstall": "node_modules/.bin/deno cache --allow-import deno/main.tsx || true",
     "lint": "eslint --ignore-path .gitignore --cache --cache-location ./node_modules/.cache/eslint .",
     "typecheck": "tsc"
